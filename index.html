@@ -1,0 +1,205 @@
+<!doctype html>
+<!-- The Time Machine GitHub pages theme was designed and developed by Jon Rohan, on Feb 7, 2012. -->
+<!-- Follow him for fun. http://twitter.com/jonrohan. Tail his code on https://github.com/jonrohan -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <link rel="stylesheet" href="stylesheets/stylesheet.css" media="screen">
+  <link rel="stylesheet" href="stylesheets/github-dark.css">
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script type="text/javascript" src="javascripts/script.js"></script>
+
+  <title>Exercise-manner-recognition</title>
+  <meta name="description" content="This is a report for Exercise Manner Recognition based on the weight-lifting exercises data set, in order to quantify how well the participants perform the exercises. ">
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+</head>
+
+<body>
+
+  <div class="wrapper">
+    <header>
+      <h1 class="title">Exercise-manner-recognition</h1>
+    </header>
+    <div id="container">
+      <p class="tagline">This is a report for Exercise Manner Recognition based on the weight-lifting exercises data set, in order to quantify how well the participants perform the exercises. </p>
+      <div id="main" role="main">
+        <div class="download-bar">
+        <div class="inner">
+          <a href="https://github.com/LeopardMa/Exercise-Manner-Recognition/tarball/master" class="download-button tar"><span>Download</span></a>
+          <a href="https://github.com/LeopardMa/Exercise-Manner-Recognition/zipball/master" class="download-button zip"><span>Download</span></a>
+          <a href="https://github.com/LeopardMa/Exercise-Manner-Recognition" class="code">View Exercise-manner-recognition on GitHub</a>
+        </div>
+        <span class="blc"></span><span class="trc"></span>
+        </div>
+        <article class="markdown-body">
+          <hr>
+
+<p>title: "Exercise Manner Recognition"
+author: "Rubao Ma"
+date: "8th Jun. 2016"</p>
+
+<h2>
+<a id="output-html_document" class="anchor" href="#output-html_document" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>output: html_document</h2>
+
+<h2>
+<a id="1-executive-summary" class="anchor" href="#1-executive-summary" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>1. Executive summary</h2>
+
+<p>This is a report for Exercise Manner Recognition based on the weight-lifting exercises data set, in order to quantify how well the participants perform the exercises. 
+There are many variables in the original data set, but some of them are useless for the model training. 
+During preprocessing, we remove some variables with little information, and employ PCA method to deal with all numerical variables. 
+After that, the model is trained through random forest, and it is proved to be effective in the  validation set. 
+The prediction result for the test set is given by this model as well. </p>
+
+<h2>
+<a id="2-weight-lifting-exercises-data-set" class="anchor" href="#2-weight-lifting-exercises-data-set" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>2. Weight-lifting exercises data set</h2>
+
+<p>This is a data set collected from 6 male participants, who were asked to perform one set of 10 repetitions
+of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). 
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.<br>
+The training data for this project are available here:<br>
+<a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a><br>
+The test data are available here:<br>
+<a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a><br>
+Each observation in the data set consists of 160 variables, including the Euler angles (roll, pitch and yaw), as well as the raw accelerometer, gyroscope and magnetometer readings, in addition to eight features calculated form the Euler angles of each of the four sensors: mean, variance, standard deviation, max, min, amplitude, kurtosis and skewness. 
+In the training set, there are 19622 rows, while there are 20 rows in testing set.<br>
+Load data set  </p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">training</span> <span class="pl-k">&lt;-</span> read.csv(<span class="pl-s"><span class="pl-pds">"</span>pml-training.csv<span class="pl-pds">"</span></span>,<span class="pl-v">header</span> <span class="pl-k">=</span> <span class="pl-c1">TRUE</span>)
+<span class="pl-smi">testing</span> <span class="pl-k">&lt;-</span> read.csv(<span class="pl-s"><span class="pl-pds">"</span>pml-testing.csv<span class="pl-pds">"</span></span>,<span class="pl-v">header</span> <span class="pl-k">=</span> <span class="pl-c1">TRUE</span>)
+dim(<span class="pl-smi">training</span>)
+dim(<span class="pl-smi">testing</span>)</pre></div>
+
+<h2>
+<a id="3-preprocessing" class="anchor" href="#3-preprocessing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>3. Preprocessing</h2>
+
+<p>There a lot of NA values and useless variables in the data sets.<br>
+Such as </p>
+
+<div class="highlight highlight-source-r"><pre>table(<span class="pl-smi">training</span><span class="pl-k">$</span><span class="pl-smi">new_window</span>)
+table(<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">new_window</span>)
+sum(<span class="pl-smi">training</span><span class="pl-k">$</span><span class="pl-smi">kurtosis_roll_belt</span><span class="pl-k">==</span><span class="pl-s"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>)<span class="pl-k">/</span>length(<span class="pl-smi">training</span><span class="pl-k">$</span><span class="pl-smi">kurtosis_roll_belt</span>)
+sum(is.na(<span class="pl-smi">training</span><span class="pl-k">$</span><span class="pl-smi">max_roll_belt</span>))<span class="pl-k">/</span>length(<span class="pl-smi">training</span><span class="pl-k">$</span><span class="pl-smi">max_roll_belt</span>)
+</pre></div>
+
+<p>For the variable, new_window, both "no" and "yes" are present in the training set, but not the same in the test set. 
+Then, it is a useless variable in this case. 
+Moreover, some variables in the data sets just get NULL value or "NA", which are not the intrested factors for the recognition. 
+For instance, NULL value and "NA" for kurtosis_roll_belt and max_roll_belt respectively both account for more than 97.93%.<br>
+Under this situation, we truncate the original data sets.</p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">na_testing</span> <span class="pl-k">&lt;-</span> (is.na(<span class="pl-smi">testing</span>))<span class="pl-k">|</span>(<span class="pl-smi">testing</span><span class="pl-k">==</span><span class="pl-s"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>)
+table(colSums(<span class="pl-smi">na_testing</span>))</pre></div>
+
+<p>100 out of 160 variables in the test set are meaningless so that the corresponding ones in the training set can be removed.</p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">sub_testing1</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">testing</span>[,colSums(<span class="pl-smi">na_testing</span>)<span class="pl-k">==</span><span class="pl-c1">0</span>]
+<span class="pl-smi">sub_training1</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">training</span>[<span class="pl-smi">training</span><span class="pl-k">$</span><span class="pl-smi">new_window</span><span class="pl-k">==</span><span class="pl-s"><span class="pl-pds">"</span>no<span class="pl-pds">"</span></span>,colSums(<span class="pl-smi">na_testing</span>)<span class="pl-k">==</span><span class="pl-c1">0</span>]</pre></div>
+
+<p>Besides, the lable in the first column, all timestamps, new_window and num_window are useless, as well as the problem_id in testing set.</p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">sub_testing2</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">sub_testing1</span>[,<span class="pl-k">-</span>c(<span class="pl-c1">1</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>,<span class="pl-c1">7</span>,<span class="pl-c1">60</span>)]
+<span class="pl-smi">sub_training2</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">sub_training1</span>[,<span class="pl-k">-</span>c(<span class="pl-c1">1</span>,<span class="pl-c1">3</span>,<span class="pl-c1">4</span>,<span class="pl-c1">5</span>,<span class="pl-c1">6</span>,<span class="pl-c1">7</span>)]</pre></div>
+
+<p>Near zero-variance predictors analysis</p>
+
+<div class="highlight highlight-source-r"><pre>library(<span class="pl-smi">caret</span>)
+nzv(<span class="pl-smi">sub_training2</span>)</pre></div>
+
+<p>So far, the dimensions of the data set become</p>
+
+<div class="highlight highlight-source-r"><pre>dim(<span class="pl-smi">sub_testing2</span>)
+dim(<span class="pl-smi">sub_training2</span>)</pre></div>
+
+<h2>
+<a id="3-model-training" class="anchor" href="#3-model-training" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>3. Model training</h2>
+
+<p>There are at least two different kinds of data in the data set. 
+Specifically, the value of user_name in the training set is discrete, while most of other value are continuous. 
+Random forest is adopted to train the model, and cross validation is used to measure the out of sample error.<br>
+Because the original training set is sorted by user_name and timestamp, we need to break this order randomly. </p>
+
+<div class="highlight highlight-source-r"><pre>set.seed(<span class="pl-c1">12345</span>)
+<span class="pl-smi">sub_training2</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">sub_training2</span>[sample(<span class="pl-c1">1</span><span class="pl-k">:</span>dim(<span class="pl-smi">sub_training2</span>)[<span class="pl-c1">1</span>],dim(<span class="pl-smi">sub_training2</span>)[<span class="pl-c1">1</span>],<span class="pl-v">replace</span> <span class="pl-k">=</span> <span class="pl-c1">FALSE</span>),]</pre></div>
+
+<p>Split the training set into two parts, modelBuilding (70%) and validation (30%).</p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">inTrain</span> <span class="pl-k">&lt;-</span> createDataPartition (<span class="pl-v">y</span><span class="pl-k">=</span><span class="pl-smi">sub_training2</span><span class="pl-k">$</span><span class="pl-smi">classe</span>,<span class="pl-v">p</span><span class="pl-k">=</span><span class="pl-c1">0.7</span>,<span class="pl-v">list</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">ModelBuilding</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">sub_training2</span>[<span class="pl-smi">inTrain</span>,]
+<span class="pl-smi">CrossValid</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">sub_training2</span>[<span class="pl-k">-</span><span class="pl-smi">inTrain</span>,]</pre></div>
+
+<p>PCA method is performed on all variables except user_name, and we construct data set MB_PCA,CV_PCA and Test_PCA for model building, cross validation and test set respectively.  </p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">PCA</span> <span class="pl-k">&lt;-</span> preProcess(<span class="pl-smi">ModelBuilding</span>[,<span class="pl-k">-</span>c(<span class="pl-c1">1</span>,<span class="pl-c1">54</span>)],<span class="pl-v">method</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>pca<span class="pl-pds">"</span></span>, <span class="pl-v">thresh</span> <span class="pl-k">=</span> <span class="pl-c1">0.9</span>)
+<span class="pl-smi">MB_PCA</span> <span class="pl-k">&lt;-</span> <span class="pl-k">data.frame</span>(<span class="pl-v">user_name</span><span class="pl-k">=</span><span class="pl-smi">ModelBuilding</span><span class="pl-k">$</span><span class="pl-smi">user_name</span>,predict(<span class="pl-smi">PCA</span>,<span class="pl-smi">ModelBuilding</span>[,<span class="pl-k">-</span>c(<span class="pl-c1">1</span>,<span class="pl-c1">54</span>)]),<span class="pl-v">classe</span><span class="pl-k">=</span><span class="pl-smi">ModelBuilding</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)
+<span class="pl-smi">CV_PCA</span> <span class="pl-k">&lt;-</span> <span class="pl-k">data.frame</span>(<span class="pl-v">user_name</span><span class="pl-k">=</span><span class="pl-smi">CrossValid</span><span class="pl-k">$</span><span class="pl-smi">user_name</span>,predict(<span class="pl-smi">PCA</span>,<span class="pl-smi">CrossValid</span>[,<span class="pl-k">-</span>c(<span class="pl-c1">1</span>,<span class="pl-c1">54</span>)]),<span class="pl-v">classe</span><span class="pl-k">=</span><span class="pl-smi">CrossValid</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)
+<span class="pl-smi">Test_PCA</span> <span class="pl-k">&lt;-</span> <span class="pl-k">data.frame</span>(<span class="pl-v">user_name</span><span class="pl-k">=</span><span class="pl-smi">sub_testing2</span><span class="pl-k">$</span><span class="pl-smi">user_name</span>,predict(<span class="pl-smi">PCA</span>,<span class="pl-smi">sub_testing2</span>[,<span class="pl-k">-</span><span class="pl-c1">1</span>]))</pre></div>
+
+<p>The model is trained by ramdon forest using data set MB_PCA.</p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">fit</span> <span class="pl-k">&lt;-</span> train(<span class="pl-smi">classe</span><span class="pl-k">~</span>.,<span class="pl-v">data</span><span class="pl-k">=</span><span class="pl-smi">MB_PCA</span>,<span class="pl-v">method</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>rf<span class="pl-pds">"</span></span>, <span class="pl-v">prox</span><span class="pl-k">=</span><span class="pl-c1">TRUE</span>)</pre></div>
+
+<p>Model training is completed.</p>
+
+<h2>
+<a id="3-prediction-result" class="anchor" href="#3-prediction-result" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>3. Prediction result</h2>
+
+<p>Then, the prediction of training set, validation set and test set is </p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">predict_train</span> <span class="pl-k">&lt;-</span> predict(<span class="pl-smi">fit</span>,<span class="pl-smi">MB_PCA</span>[,<span class="pl-k">-</span><span class="pl-c1">20</span>])
+<span class="pl-smi">predict_CV</span> <span class="pl-k">&lt;-</span> predict(<span class="pl-smi">fit</span>,<span class="pl-smi">CV_PCA</span>[,<span class="pl-k">-</span><span class="pl-c1">20</span>])
+<span class="pl-smi">predict_test</span> <span class="pl-k">&lt;-</span> predict(<span class="pl-smi">fit</span>,<span class="pl-smi">Test_PCA</span>)</pre></div>
+
+<p>The in sample error</p>
+
+<div class="highlight highlight-source-r"><pre>confusionMatrix(<span class="pl-smi">predict_train</span>,<span class="pl-smi">MB_PCA</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)</pre></div>
+
+<p>All samples are recognized precisely, and Kappa equals to 1. In terms of the training set, this model is perfect.<br>
+The out of sample error</p>
+
+<div class="highlight highlight-source-r"><pre>confusionMatrix(<span class="pl-smi">predict_CV</span>,<span class="pl-smi">CV_PCA</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)</pre></div>
+
+<p>The accuracy for validation set is 97%, and Kappa equals to 0.962. 
+It means that the model is effective.<br>
+The prediction for test set is </p>
+
+<div class="highlight highlight-source-r"><pre><span class="pl-smi">test_result</span> <span class="pl-k">&lt;-</span> <span class="pl-k">data.frame</span>(<span class="pl-v">problem_id</span><span class="pl-k">=</span><span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">problem_id</span>,<span class="pl-v">prediction_classe</span><span class="pl-k">=</span><span class="pl-smi">predict_test</span>)
+<span class="pl-smi">test_result</span></pre></div>
+
+<h2>
+<a id="4-conclusion" class="anchor" href="#4-conclusion" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>4. Conclusion</h2>
+
+<p>In this work, we complete the task following steps below:<br>
+1. Adjust the structure of the original data set manually according to the characteristics of the data set itself;<br>
+2. Deal with the training set by PCA in order to diminish the impact of variables with strong correlation with each other and reduce the number of variables for model training;<br>
+3. It is taken into consideration that there are two kinds of variable in the data sets, then we choose random forest to train the model;<br>
+4. The model is tested in training set and validation set, which proves its effectiveness;<br>
+5. The prediction of test set is given by the model above.<br>
+This scheme works to some extent in this work. 
+It may get some inprovement by trying other methods to train the model.</p>
+        </article>
+      </div>
+    </div>
+    <footer>
+      <div class="owner">
+      <p><a href="https://github.com/LeopardMa" class="avatar"><img src="https://avatars3.githubusercontent.com/u/16652260?v=3&amp;s=60" width="48" height="48"></a> <a href="https://github.com/LeopardMa">LeopardMa</a> maintains <a href="https://github.com/LeopardMa/Exercise-Manner-Recognition">Exercise-manner-recognition</a></p>
+
+
+      </div>
+      <div class="creds">
+        <small>This page generated using <a href="https://pages.github.com/">GitHub Pages</a><br>theme by <a href="https://twitter.com/jonrohan/">Jon Rohan</a></small>
+      </div>
+    </footer>
+  </div>
+  <div class="current-section">
+    <a href="#top">Scroll to top</a>
+    <a href="https://github.com/LeopardMa/Exercise-Manner-Recognition/tarball/master" class="tar">tar</a><a href="https://github.com/LeopardMa/Exercise-Manner-Recognition/zipball/master" class="zip">zip</a><a href="" class="code">source code</a>
+    <p class="name"></p>
+  </div>
+
+  
+</body>
+</html>
