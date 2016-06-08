@@ -1,0 +1,144 @@
+---
+title: "Exercise Manner Recognition"
+author: "Rubao Ma"
+date: "8th Jun. 2016"
+output: html_document
+---
+
+##1. Executive summary
+
+This is a report for Exercise Manner Recognition based on the weight-lifting exercises data set, in order to quantify how well the participants perform the exercises. 
+There are many variables in the original data set, but some of them are useless for the model training. 
+During preprocessing, we remove some variables with little information, and employ PCA method to deal with all numerical variables. 
+After that, the model is trained through random forest, and it is proved to be effective in the  validation set. 
+The prediction result for the test set is given by this model as well. 
+
+##2. Weight-lifting exercises data set
+This is a data set collected from 6 male participants, who were asked to perform one set of 10 repetitions
+of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). 
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.  
+The training data for this project are available here:  
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>  
+The test data are available here:  
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>  
+Each observation in the data set consists of 160 variables, including the Euler angles (roll, pitch and yaw), as well as the raw accelerometer, gyroscope and magnetometer readings, in addition to eight features calculated form the Euler angles of each of the four sensors: mean, variance, standard deviation, max, min, amplitude, kurtosis and skewness. 
+In the training set, there are 19622 rows, while there are 20 rows in testing set.  
+Load data set  
+```{r,cache=TRUE}
+training <- read.csv("pml-training.csv",header = TRUE)
+testing <- read.csv("pml-testing.csv",header = TRUE)
+dim(training)
+dim(testing)
+```
+
+##3. Preprocessing
+
+There a lot of NA values and useless variables in the data sets.  
+Such as 
+```{r,cache=TRUE}
+table(training$new_window)
+table(testing$new_window)
+sum(training$kurtosis_roll_belt=="")/length(training$kurtosis_roll_belt)
+sum(is.na(training$max_roll_belt))/length(training$max_roll_belt)
+
+```
+For the variable, new_window, both "no" and "yes" are present in the training set, but not the same in the test set. 
+Then, it is a useless variable in this case. 
+Moreover, some variables in the data sets just get NULL value or "NA", which are not the intrested factors for the recognition. 
+For instance, NULL value and "NA" for kurtosis_roll_belt and max_roll_belt respectively both account for more than 97.93%.  
+Under this situation, we truncate the original data sets.
+```{r,cache=TRUE}
+na_testing <- (is.na(testing))|(testing=="")
+table(colSums(na_testing))
+```
+100 out of 160 variables in the test set are meaningless so that the corresponding ones in the training set can be removed.
+
+```{r}
+sub_testing1 <- testing[,colSums(na_testing)==0]
+sub_training1 <- training[training$new_window=="no",colSums(na_testing)==0]
+```
+Besides, the lable in the first column, all timestamps, new_window and num_window are useless, as well as the problem_id in testing set.
+```{r, cache=TRUE}
+sub_testing2 <- sub_testing1[,-c(1,3,4,5,6,7,60)]
+sub_training2 <- sub_training1[,-c(1,3,4,5,6,7)]
+```
+Near zero-variance predictors analysis
+```{r,message=FALSE,warning=FALSE}
+library(caret)
+nzv(sub_training2)
+```
+So far, the dimensions of the data set become
+```{r, cache=TRUE}
+dim(sub_testing2)
+dim(sub_training2)
+```
+
+## 3. Model training
+There are at least two different kinds of data in the data set. 
+Specifically, the value of user_name in the training set is discrete, while most of other value are continuous. 
+Random forest is adopted to train the model, and cross validation is used to measure the out of sample error.   
+Because the original training set is sorted by user_name and timestamp, we need to break this order randomly. 
+```{r, cache=TRUE, message=FALSE, warning=FALSE}
+set.seed(12345)
+sub_training2 <- sub_training2[sample(1:dim(sub_training2)[1],dim(sub_training2)[1],replace = FALSE),]
+```
+Split the training set into two parts, modelBuilding (70%) and validation (30%).
+```{r,cache=TRUE}
+inTrain <- createDataPartition (y=sub_training2$classe,p=0.7,list=FALSE)
+ModelBuilding <- sub_training2[inTrain,]
+CrossValid <- sub_training2[-inTrain,]
+```
+PCA method is performed on all variables except user_name, and we construct data set MB_PCA,CV_PCA and Test_PCA for model building, cross validation and test set respectively.  
+```{r,cache=TRUE}
+PCA <- preProcess(ModelBuilding[,-c(1,54)],method = "pca", thresh = 0.9)
+MB_PCA <- data.frame(user_name=ModelBuilding$user_name,predict(PCA,ModelBuilding[,-c(1,54)]),classe=ModelBuilding$classe)
+CV_PCA <- data.frame(user_name=CrossValid$user_name,predict(PCA,CrossValid[,-c(1,54)]),classe=CrossValid$classe)
+Test_PCA <- data.frame(user_name=sub_testing2$user_name,predict(PCA,sub_testing2[,-1]))
+```
+The model is trained by ramdon forest using data set MB_PCA.
+```{r,cache=TRUE,message=FALSE,warning=FALSE}
+fit <- train(classe~.,data=MB_PCA,method="rf", prox=TRUE)
+```
+Model training is completed.
+
+## 3. Prediction result  
+
+Then, the prediction of training set, validation set and test set is 
+```{r, cache=TRUE}
+predict_train <- predict(fit,MB_PCA[,-20])
+predict_CV <- predict(fit,CV_PCA[,-20])
+predict_test <- predict(fit,Test_PCA)
+```
+The in sample error
+```{r, cache=TRUE}
+confusionMatrix(predict_train,MB_PCA$classe)
+```
+All samples are recognized precisely, and Kappa equals to 1. In terms of the training set, this model is perfect.  
+The out of sample error
+```{r, cache=TRUE}
+confusionMatrix(predict_CV,CV_PCA$classe)
+```
+The accuracy for validation set is 97%, and Kappa equals to 0.962. 
+It means that the model is effective.  
+The prediction for test set is 
+```{r}
+test_result <- data.frame(problem_id=testing$problem_id,prediction_classe=predict_test)
+test_result
+```
+
+## 4. Conclusion
+
+In this work, we complete the task following steps below:  
+1. Adjust the structure of the original data set manually according to the characteristics of the data set itself;  
+2. Deal with the training set by PCA in order to diminish the impact of variables with strong correlation with each other and reduce the number of variables for model training;  
+3. It is taken into consideration that there are two kinds of variable in the data sets, then we choose random forest to train the model;  
+4. The model is tested in training set and validation set, which proves its effectiveness;  
+5. The prediction of test set is given by the model above.  
+This scheme works to some extent in this work. 
+It may get some inprovement by trying other methods to train the model.
+
+
+
+
+
+
